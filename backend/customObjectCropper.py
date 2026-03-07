@@ -34,7 +34,7 @@ print("Press 'q' to quit")
 
 while True:
     ret, frame = cap.read()
-
+    frame = cv2.flip(frame, 1)
     if not ret:
         print("Error: Failed to read frame.")
         break
