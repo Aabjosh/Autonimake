@@ -94,9 +94,9 @@ while True:
     display = frame.copy()
 
     if results.multi_hand_landmarks:
-
+        
         hand_landmarks = results.multi_hand_landmarks[0]
-
+        mp.solutions.drawing_utils.draw_landmarks(frame, hand_landmarks, mp.solutions.hands.HAND_CONNECTIONS)
         xs = []
         ys = []
 
@@ -136,7 +136,6 @@ while True:
                         cv2.FONT_HERSHEY_SIMPLEX,0.9,color,2)
 
     cv2.imshow("Recognition", display)
-
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 

@@ -43,7 +43,7 @@ try:
 
             # Use first detected hand
             hand_landmarks = results.multi_hand_landmarks[0]
-
+            mp.solutions.drawing_utils.draw_landmarks(frame,hand_landmarks,mp.solutions.hands.HAND_CONNECTIONS)
             xs = []
             ys = []
 
