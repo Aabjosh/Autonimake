@@ -1,11 +1,16 @@
 import cv2
 import os
 
+# ensure dataset always goes to project root
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+DATASET_DIR = os.path.join(PROJECT_ROOT, "pytorch_dataset_object")
+
 SUBFOLDER = input("Enter a label with no special characters or anything...\n").strip()
 
-folder = os.path.join('pytorch_dataset', SUBFOLDER)
-if not os.path.exists(folder):
-    os.makedirs(folder)
+# use DATASET_DIR 
+folder = os.path.join(DATASET_DIR, SUBFOLDER)
+os.makedirs(folder, exist_ok=True)
 
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
@@ -28,7 +33,7 @@ y2 = (height // 2) + (box_size // 2)
 
 frame_count = 0
 saved_count = 0
-save_interval = 5
+save_interval = 10
 
 print("Press 'q' to quit")
 
@@ -63,7 +68,7 @@ while True:
 
     frame_count += 1
 
-    if 0xFF == ord('q'):
+    if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
 cap.release()

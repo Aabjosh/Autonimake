@@ -29,8 +29,21 @@ EPOCHS = config["epochs"]
 LEARNING_RATE = config["learning_rate"]
 FOLDER_NAME = "test_model.pth"
 KERNEL_SIZE = 3
+ 
 
-DIRECTORY  = os.path.join(PROJECT_ROOT, "pytorch_dataset") # fix: use PROJECT_ROOT not SCRIPT_DIR
+while True:
+    print("Using Hand or Object Dataset? (h/o)")
+    choice = input().strip().lower()
+
+    if choice == "h":
+        DIRECTORY = os.path.join(PROJECT_ROOT, "pytorch_dataset_hand")
+        break
+    elif choice == "o":
+        DIRECTORY = os.path.join(PROJECT_ROOT, "pytorch_dataset_object")
+        break
+    else:
+        print("Invalid choice. Please enter 'h' or 'o'.")
+    
 
 # before starting the processing
 train_transforms = transforms.Compose([

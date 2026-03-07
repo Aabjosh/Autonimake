@@ -6,7 +6,7 @@
     },
     "current": {
         "batch_size": 10,
-        "epochs": 36,
+        "epochs": 12,
         "learning_rate": 0.0005
     }
 }

@@ -2,9 +2,15 @@ import cv2
 import mediapipe as mp
 import os
 
+# ensure dataset always goes to project root
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+DATASET_DIR = os.path.join(PROJECT_ROOT, "pytorch_dataset_hand")
+
 SUBFOLDER = input("Enter a label with no special characters or anything...\n").strip()
 
-folder = os.path.join('pytorch_dataset', SUBFOLDER)
+# use DATASET_DIR 
+folder = os.path.join(DATASET_DIR, SUBFOLDER)
 os.makedirs(folder, exist_ok=True)
 
 cap = cv2.VideoCapture(0)

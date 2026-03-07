@@ -8,7 +8,7 @@ import mediapipe as mp
 
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-DATASET_DIR  = os.path.join(PROJECT_ROOT, "pytorch_dataset")
+DATASET_DIR  = os.path.join(PROJECT_ROOT, "pytorch_dataset_hand")
 MODEL_PATH   = os.path.join(PROJECT_ROOT, "test_model.pth")
 
 KERNEL_SIZE = 3

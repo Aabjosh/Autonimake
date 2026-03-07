@@ -6,16 +6,12 @@ from PIL import Image
 import os
 
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
-DATASET_DIR  = os.path.join(PROJECT_ROOT, "pytorch_dataset")
-MODEL_PATH = os.path.join(PROJECT_ROOT, "test_model.pth")
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)  # This is Autonimake/
+DATASET_DIR  = os.path.join(SCRIPT_DIR, "..", "pytorch_dataset_object")
+MODEL_PATH   = os.path.join(SCRIPT_DIR, "..", "test_model.pth")
 KERNEL_SIZE = 3
 CONFIDENCE_THRESHOLD = 60.0
 
-# load class names directly from dataset folders
-classes     = sorted(os.listdir(DATASET_DIR))
-num_classes = len(classes)
-print(f"Classes: {classes}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -44,8 +40,11 @@ class neural_network(nn.Module):
         return self.model(x)
 
 # load trained weights
+checkpoint = torch.load(MODEL_PATH, map_location=device)
+num_classes = checkpoint['model.24.bias'].shape[0]
+classes = sorted(os.listdir(DATASET_DIR))
 model = neural_network(num_classes).to(device)
-model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+model.load_state_dict(checkpoint)
 model.eval()
 
 infer_transforms = transforms.Compose([
@@ -85,7 +84,7 @@ while True:
         outputs = model(preprocess(roi))
         probs   = torch.softmax(outputs, dim=1)
         conf, pred = torch.max(probs, 1)
-        label  = classes[pred.item()]
+        label = classes[pred.item()] if pred.item() < len(classes) else f"class_{pred.item()}"
         conf   = conf.item() * 100
 
     # green if confident, red if unsure
