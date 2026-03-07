@@ -1,7 +1,11 @@
 import cv2
 import os
+import sys
 
-SUBFOLDER = input("Enter a label with no special characters or anything...\n").strip()
+if len(sys.argv) > 1:
+    SUBFOLDER = sys.argv[1].strip()
+else:
+    SUBFOLDER = input("Enter a label with no special characters or anything...\n").strip()
 
 folder = os.path.join('pytorch_dataset', SUBFOLDER)
 if not os.path.exists(folder):
@@ -63,7 +67,7 @@ while True:
 
     frame_count += 1
 
-    if 0xFF == ord('q'):
+    if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
 cap.release()
