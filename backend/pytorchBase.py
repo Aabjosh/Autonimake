@@ -3,119 +3,166 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split, Subset
 import os
 import json
 
-if os.path.exists("config.json"):
-        with open("config.json", "r") as f:
-            config = json.load(f)["current"]
+# default config if issues persist
+DEFAULT_CONFIG = {
+    "batch_size": 32,
+    "epochs": 20,
+    "learning_rate": 0.001
+}
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)  # goes up one folder
+CONFIG_PATH = os.path.join(SCRIPT_DIR, "config.json")
+if os.path.exists(CONFIG_PATH):
+    with open(CONFIG_PATH, "r") as f:
+        config = json.load(f).get("current", DEFAULT_CONFIG)
 else:
-    print("file not found.")
+    print("config.json not found, using defaults.")
+    config = DEFAULT_CONFIG
 
 BATCH_SIZE = config["batch_size"]
 EPOCHS = config["epochs"]
-FOLDER_NAME = "test"
-DIRECTORY = "pytorch_dataset" # make this the OpenCV generated one
+LEARNING_RATE = config["learning_rate"]
+FOLDER_NAME = "test_model.pth"
 KERNEL_SIZE = 3
 
-LEARNING_RATE = config["learning_rate"]
+DIRECTORY  = os.path.join(PROJECT_ROOT, "pytorch_dataset") # fix: use PROJECT_ROOT not SCRIPT_DIR
 
-# preprocessing of images to 200x200, tensor format
-preprocess = transforms.Compose([
+# before starting the processing
+train_transforms = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.RandomHorizontalFlip(),
+    transforms.RandomVerticalFlip(),              # fix: added more augmentation
+    transforms.RandomGrayscale(p=0.1),            # fix: added more augmentation
+    transforms.RandomPerspective(distortion_scale=0.2), # fix: added more augmentation
     transforms.RandomRotation(10),
     transforms.ColorJitter(brightness=0.3, contrast=0.3),
     transforms.ToTensor(),
-    transforms.Normalize([0.5], [0.5])
+    transforms.Normalize([0.485, 0.456, 0.406], # RGB mean
+                         [0.229, 0.224, 0.225]) # RGB std
 ])
 
-# make sure to load the opencv image folder
-train_set = datasets.ImageFolder(root=DIRECTORY, transform=preprocess)
-train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True)
+# validation images
+val_transforms = transforms.Compose([
+    transforms.Resize((256, 256)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406],
+                         [0.229, 0.224, 0.225])
+])
 
+# load dataset and split
+full_dataset = datasets.ImageFolder(root=DIRECTORY, transform=train_transforms)
+num_classes = len(full_dataset.classes)
+print(f"Classes: {full_dataset.classes}")
+
+# fix: proper subset split so val transform doesn't bleed into train
+indices  = list(range(len(full_dataset)))
+split = int(0.2 * len(full_dataset))
+train_set = Subset(full_dataset, indices[split:])
+val_set = Subset(full_dataset, indices[:split])
+val_set.dataset.transform = val_transforms
+
+train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True)
+val_loader = DataLoader(val_set,   batch_size=BATCH_SIZE, shuffle=False)
+
+# model
 class neural_network(nn.Module):
     def __init__(self, num_tags):
         super(neural_network, self).__init__()
         self.model = nn.Sequential(
-                
-                nn.Conv2d(3,16,KERNEL_SIZE,padding=1), # (B, 16, 256, 256)
-                nn.BatchNorm2d(16),
-                nn.ReLU(),
-                nn.MaxPool2d(2,2), # (B, 16, 128, 128)
-                
-                nn.Conv2d(16,32,KERNEL_SIZE,padding=1), # (B, 32, 128, 128)
-                nn.BatchNorm2d(32),
-                nn.ReLU(),
-                nn.MaxPool2d(2,2), # (B, 32, 64, 64)
-                
-                nn.Conv2d(32,64,KERNEL_SIZE,padding=1), # (B, 64, 64, 64)
-                nn.BatchNorm2d(64),
-                nn.ReLU(),
-                nn.MaxPool2d(2,2), # (B, 64, 32, 32)
-                
-                nn.Conv2d(64,128,KERNEL_SIZE,padding=1), # (B, 128, 32, 32)
-                nn.BatchNorm2d(128),
-                nn.ReLU(),
-                nn.MaxPool2d(2,2), # (B, 128, 16, 16)
 
-                nn.Conv2d(128,256,KERNEL_SIZE,padding=1), # (B, 256, 16, 16)
-                nn.BatchNorm2d(256),
-                nn.ReLU(),
-                nn.MaxPool2d(2,2), # (B, 256, 8, 8)
+            nn.Conv2d(3, 16, KERNEL_SIZE, padding=1),   # (B, 16, 256, 256)
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), # (B, 16, 128, 128)
 
-                nn.Flatten(16384, 256),
-                nn.ReLU(),
-                nn.Dropout(0.2),
-                nn.Linear(256, num_tags)
-                
+            nn.Conv2d(16, 32, KERNEL_SIZE, padding=1),  # (B, 32, 128, 128)
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), # (B, 32, 64, 64)
+
+            nn.Conv2d(32, 64, KERNEL_SIZE, padding=1),  # (B, 64, 64, 64)
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), # (B, 64, 32, 32)
+
+            nn.Conv2d(64, 128, KERNEL_SIZE, padding=1), # (B, 128, 32, 32)
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), # (B, 128, 16, 16)
+
+            nn.Conv2d(128, 256, KERNEL_SIZE, padding=1), # (B, 256, 16, 16)
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2), # (B, 256, 8, 8)
+
+            nn.Flatten(), # (B, 16384)
+            nn.Linear(16384, 256),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(256, num_tags)
         )
-    
-    # to step
+
     def forward(self, x):
-         return self.model(x)
-    
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-else:
-    device = torch.device("cpu")
+        return self.model(x)
 
-model = neural_network.to(device)
 
-# error loss
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+model = neural_network(num_classes).to(device)
 error_stuff = nn.CrossEntropyLoss()
+optimizer_algo = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer_algo, step_size=5, gamma=0.5)
 
-# learning model
-optimizer_algo = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
-
-accuracy_bench = 0 # to keep track of overfitting, if it gets worse then its overfitting?
+least_loss = float('inf')
 
 for epoch in range(EPOCHS):
-    total_loss = 0.0
-    completed = 0.0
-    total = 0
 
     model.train()
+    total_loss = 0.0
+    correct = 0 
+    total = 0
 
     for images, labels in train_loader:
+        # print(images)
         images, labels = images.to(device), labels.to(device) # send image tensors to GPU
         optimizer_algo.zero_grad() # reset the gradients for the training algo
         outputs = model(images)
         loss = error_stuff(outputs, labels) # compares the raw data to the expected ones, sees how off they are
         loss.backward()
         optimizer_algo.step()
-
         total_loss += loss.item() # adds the loss to the total loss
-
         _, predicted = torch.max(outputs, 1) # indexes of the max values
         correct += (predicted == labels).sum().item()
         total += labels.size(0)
 
-        accuracy = (correct / total) * 100
+    train_accuracy = (correct / total) * 100
 
-        print(f"Epoch {epoch+1}/{EPOCHS} \nLoss: {total_loss:.4f}\nAccuracy: {accuracy:.2f}%")
+    model.eval()
+    val_correct = 0
+    val_total = 0
 
-        if accuracy > accuracy_bench:
-            torch.save(model.state_dict(), FOLDER_NAME)
-            accuracy_bench = accuracy
+    with torch.no_grad():
+        for images, labels in val_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            val_correct += (predicted == labels).sum().item()
+            val_total += labels.size(0)
+
+    val_accuracy = (val_correct / val_total) * 100
+
+    print(f"Epoch {epoch+1}/{EPOCHS} | Loss: {total_loss:.4f} | Train Acc: {train_accuracy:.2f}% | Val Acc: {val_accuracy:.2f}%")
+
+    if total_loss < least_loss:
+        torch.save(model.state_dict(), FOLDER_NAME)
+        least_loss = total_loss
+        print(f"Saved best model ({val_accuracy:.2f}%)")
+
+    scheduler.step()
+
+print(f"Best loss: {least_loss:.2f}%")
