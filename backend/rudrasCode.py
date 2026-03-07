@@ -1,48 +1,77 @@
-### WRITE UR STUFF FOR MANAGING THE HAND TRAKCING ROIS HERE
-
-# Import  libraries
 import cv2
 import mediapipe as mp
+import os
 
-# Initialize video capture
+# Camera
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-# Initialize Mediapipe Hands
+# Mediapipe
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 hands = mp_hands.Hands(min_detection_confidence=0.7, min_tracking_confidence=0.7)
 
+# Dataset folder
+folder = "pytorch_dataset"
+os.makedirs(folder, exist_ok=True)
+
+frame_count = 0
+saved_count = 0
+save_interval = 5
+
+print("Press Q to quit")
+
 try:
-    while cv2.waitKey(1) & 0xFF != ord('q'):
+    while True:
+
         success, frame = cap.read()
         if not success:
             break
 
-        # Flip for mirror effect and convert to RGB
         frame = cv2.flip(frame, 1)
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Process frame to detect hands
-        result = hands.process(rgb_frame)
+        results = hands.process(rgb)
 
-        if result.multi_hand_landmarks and result.multi_handedness:
-            for idx, hand_landmarks in enumerate(result.multi_hand_landmarks):
-                # Draw hand landmarks and connections
-                mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+        if results.multi_hand_landmarks:
 
-                # Get hand label (Left or Right)
-                hand_label = result.multi_handedness[idx].classification[0].label
+            for hand_landmarks in results.multi_hand_landmarks:
 
-                # Display label on top of wrist (landmark 0)
-                wrist = hand_landmarks.landmark[0]
-                x = int(wrist.x * 640)
-                y = int(wrist.y * 480)
-                cv2.putText(frame, hand_label, (x - 30, y - 10),cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                # mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-        # Show the frame
-        cv2.imshow("Two-Hand Tracking", frame)
+                # Get bounding box from landmark extremes
+                xs = []
+                ys = []
+
+                for lm in hand_landmarks.landmark:
+                    xs.append(int(lm.x * 640))
+                    ys.append(int(lm.y * 480))
+
+                x_min = max(min(xs) - 20, 0)
+                x_max = min(max(xs) + 20, 640)
+                y_min = max(min(ys) - 20, 0)
+                y_max = min(max(ys) + 20, 480)
+
+                # Draw bounding box
+                cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (255,0,0), 2)
+
+                # Crop hand ROI
+                hand_crop = frame[y_min:y_max, x_min:x_max]
+
+                # Save every 5th frame
+                if frame_count % save_interval == 0 and hand_crop.size != 0:
+
+                    filename = os.path.join(folder, f"hand_{saved_count:04d}.jpg")
+                    cv2.imwrite(filename, hand_crop)
+                    saved_count += 1
+
+        frame_count += 1
+
+        cv2.imshow("Hand Dataset Capture", frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 finally:
     cap.release()
