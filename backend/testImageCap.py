@@ -33,7 +33,7 @@ while True:
 
     frame_count +=1
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if 0xFF == ord('q'):
         break
 
 # Cleanup
