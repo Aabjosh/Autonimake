@@ -16,7 +16,8 @@ if not cap.isOpened():
     print("Error: Could not open camera.")
     exit()
 
-print("Press 'q' to quit | Press 's' to save a frame")
+print("Press 'q' to quit")
+
 
 
 while True:
@@ -25,6 +26,8 @@ while True:
     if not ret:
         print("Error: Failed to read frame.")
         break
+
+    cv2.imshow('frame',frame)
 
     if frame_count % save_interval == 0:
         filename = os.path.join(folder, f"frame_{frame_count:04d}.jpg")
