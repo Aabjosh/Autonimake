@@ -1,0 +1,12 @@
+{
+    "default": {
+        "batch_size": 2,
+        "epochs": 30,
+        "learning_rate": 0.0005
+    },
+    "current": {
+        "batch_size": 2,
+        "epochs": 30,
+        "learning_rate": 0.0005
+    }
+}
