@@ -15,13 +15,13 @@ void clearLine() {
 
 void setup() {
   Serial.begin(115200);
+  Serial.println(PERIPHERAL_ID);
   u8g2.begin();
   u8g2.setFont(u8g2_font_ncenB08_tr);
 }
 
 void loop() {
 
-  Serial.println(PERIPHERAL_ID);
   bool updated = false;
 
   while (Serial.available()) {
@@ -30,6 +30,8 @@ void loop() {
     if (c != '\n' && c != '\r') {
       line += c;
       updated = true;
+    } else if (c == "0"){
+      clearLine();
     }
   }
 
