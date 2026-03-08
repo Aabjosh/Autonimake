@@ -5,6 +5,7 @@ from torchvision import transforms
 from PIL import Image
 import os
 import mediapipe as mp
+import socket
 
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
@@ -13,6 +14,13 @@ MODEL_PATH   = os.path.join(PROJECT_ROOT, "test_model.pth")
 
 KERNEL_SIZE = 3
 CONFIDENCE_THRESHOLD = 60.0
+
+HUB_IP = '172.20.10.8'
+PORT = 8000
+
+# wifi stuff for connecting to pi
+wifi_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+wifi_server.connect((HUB_IP, PORT))
 
 # load classes
 classes = sorted(os.listdir(DATASET_DIR))
@@ -129,6 +137,7 @@ while True:
 
             if conf >= CONFIDENCE_THRESHOLD:
                 text = f"{label} {conf:.1f}%"
+                wifi_server.sendall((f"ESP32_SCREEN,{label}").encode())
             else:
                 text = "unknown"
 
@@ -141,4 +150,5 @@ while True:
 
 cap.release()
 hands.close()
+wifi_server.close()
 cv2.destroyAllWindows()
