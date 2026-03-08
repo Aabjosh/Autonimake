@@ -1,8 +1,8 @@
 {
     "standard": 
     {
-        "1": "TWO_DIRECTIONAL_DIGITAL",
-        "2": "CHARACTER_STREAM"
+        "ESP32_DRIVEBASE": "TWO_DIRECTIONAL_DIGITAL",
+        "ESP32_SCREEN": "CHARACTER_STREAM"
     },
     "custom": 
     {}

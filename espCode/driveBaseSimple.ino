@@ -4,7 +4,7 @@ const int IN2 = 26; // Left Backward
 const int IN3 = 13; // Right Forward
 const int IN4 = 27; // Right Backward (safe boot)
 
-const String PERIPHERAL_ID = "1" // peripheral id number
+const String PERIPHERAL_ID = "ESP32_DRIVEBASE"; // peripheral id number
 
 // Buffer for Serial input
 String commandBuffer = "";

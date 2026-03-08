@@ -3,7 +3,7 @@
 
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
-const String PERIPHERAL_ID = "2" // peripheral id number
+const String PERIPHERAL_ID = "ESP32_SCREEN" // peripheral id number
 
 void setup() {
   Serial.begin(115200);

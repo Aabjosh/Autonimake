@@ -11,6 +11,13 @@ import standardUARTMessages as UART_m
 
 ports = glob.glob('/dev/ttyUSB*') # only care about usb uart
 
+HOST = '0.0.0.0' # listen on 'all network interfaces'
+PORT = 8000 # recieve messages on this port
+
+wifi_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # creates an object to get messages, where the regular internet protocol is the type and the method of retrieval is the TCP protocol
+wifi_server.bind(HOST, PORT) # make sure the port to listen on and the host IP are configured
+wifi_server.listen() # begin listening
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)  # goes up one folder
 PERIPHERALS_PATH = os.path.join(SCRIPT_DIR, "peripherals.json")
@@ -39,19 +46,6 @@ for port in ports:
 
 print(f"got {found_devices.keys().__len__} port peripherals")
 
-
-serial_1 = serial.Serial("/dev/serial0", 115200, timeout=1) # MIGHT WANNA REMOVE THHIS TIMEOUT!
-time.sleep(2) # lets the UART become stable
-
-HOST = '0.0.0.0' # listen on 'all network interfaces'
-PORT = 8000 # recieve messages on this port
-
-wifi_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # creates an object to get messages, where the regular internet protocol is the type and the method of retrieval is the TCP protocol
-
-wifi_server.bind(HOST, PORT) # make sure the port to listen on and the host IP are configured
-
-wifi_server.listen() # begin listening
-
 while True:
     message_list = []
     target = ""
@@ -64,7 +58,7 @@ while True:
         if message:
 
             # to store the two parts of the message
-            message_list = message.split(" ")
+            message_list = message.split(",")
             
             # if bad message from computer, ignore
             if len(message_list) < 2:
@@ -83,3 +77,5 @@ while True:
             data_string = UART_m.getMessage(target, command) # get the actual string to send
 
             tx.write(data_string.encode())
+
+            print(f"SENT: {data_string} TO: {tx}")
