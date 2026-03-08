@@ -14,7 +14,7 @@ void clearLine() {
 
 
 void setup() {
-  Serial.begin(11520);
+  Serial.begin(115200);
   u8g2.begin();
   u8g2.setFont(u8g2_font_ncenB08_tr);
 }
