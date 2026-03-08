@@ -4,6 +4,8 @@ const int IN2 = 26; // Left Backward
 const int IN3 = 13; // Right Forward
 const int IN4 = 27; // Right Backward (safe boot)
 
+const String PERIPHERAL_ID = "1" // peripheral id number
+
 // Buffer for Serial input
 String commandBuffer = "";
 
@@ -19,11 +21,13 @@ void setup() {
   // Ensure motors are off at startup
   stopMotors();
 
-  Serial.println("--- Motor Controller Ready ---");
-  Serial.println("Send commands as: left,right");
-  Serial.println("Use: 1 = forward, -1 = backward, 0 = stop");
-  Serial.println("Example: '1,1' -> move forward, '-1,-1' -> backward");
-  Serial.println("Type a command and press Enter (newline)");
+  // Serial.println("--- Motor Controller Ready ---");
+  // Serial.println("Send commands as: left,right");
+  // Serial.println("Use: 1 = forward, -1 = backward, 0 = stop");
+  // Serial.println("Example: '1,1' -> move forward, '-1,-1' -> backward");
+  // Serial.println("Type a command and press Enter (newline)");
+
+  Serial.println(PERIPHERAL_ID);
 }
 
 void loop() {
@@ -46,15 +50,15 @@ void loop() {
 void processCommand(String line) {
   int commaIndex = line.indexOf(',');
   if (commaIndex == -1) {
-    Serial.println("Error: Use format 'left,right' e.g., 1,-1");
+    // Serial.println("Error: Use format 'left,right' e.g., 1,-1");
     return;
   }
 
   int leftMove = line.substring(0, commaIndex).toInt();
   int rightMove = line.substring(commaIndex + 1).toInt();
 
-  Serial.print("Executing -> Left: "); Serial.print(leftMove);
-  Serial.print(" | Right: "); Serial.println(rightMove);
+  // Serial.print("Executing -> Left: "); Serial.print(leftMove);
+  // Serial.print(" | Right: "); Serial.println(rightMove);
 
   // Left motor control
   if (leftMove > 0) {        // Forward
