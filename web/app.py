@@ -11,12 +11,27 @@ import io
 app = Flask(__name__)
 CORS(app)  # Allow CORS for local testing
 
+from flask import Flask, request, jsonify, send_from_directory
+
+@app.route('/')
+def index():
+    return send_from_directory(SCRIPT_DIR, 'index.html')
+
+@app.route('/<path:filename>')
+def static_files(filename):
+    return send_from_directory(SCRIPT_DIR, filename)
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+<<<<<<< HEAD
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 BACKEND_DIR = os.path.join(PROJECT_ROOT, "backend")
 OBJ_DATASET_DIR = os.path.join(PROJECT_ROOT, "pytorch_dataset_object")
 HAND_DATASET_DIR = os.path.join(PROJECT_ROOT, "pytorch_dataset_hand")
 MODEL_PATH = os.path.join(BACKEND_DIR, "test_model.pth")
+=======
+# SCRIPT_DIR is /Users/ayushgandhi/AutoIMake
+BACKEND_DIR = os.path.join(SCRIPT_DIR, "..", "backend")  # go up one, then into backend
+>>>>>>> 654e7493e17603c079158134760e119df0edd7c6
 
 @app.route('/api/status', methods=['GET'])
 def get_status():

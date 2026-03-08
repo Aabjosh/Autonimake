@@ -7,6 +7,7 @@ import os
 import json
 import time
 import mediapipe as mp
+import socket
 
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
@@ -16,6 +17,13 @@ DETECTION_OUTPUT = os.path.join(SCRIPT_DIR, "detection_output.json")
 
 KERNEL_SIZE = 3
 CONFIDENCE_THRESHOLD = 60.0
+
+HUB_IP = '172.20.10.8'
+PORT = 8000
+
+# wifi stuff for connecting to pi
+wifi_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+wifi_server.connect((HUB_IP, PORT))
 
 # load classes
 classes = sorted([d for d in os.listdir(DATASET_DIR) if os.path.isdir(os.path.join(DATASET_DIR, d))])
