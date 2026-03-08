@@ -4,6 +4,7 @@
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
 String line = "";
+String PERIPHERAL_ID = "ESP32_SCREEN";
 
 void clearLine() {
   line = "";                 // reset stored text
@@ -19,7 +20,8 @@ void setup() {
 }
 
 void loop() {
-
+  
+  Serial.println(PERIPHERAL_ID);
   bool updated = false;
 
   while (Serial.available()) {
