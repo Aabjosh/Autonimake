@@ -6,6 +6,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, random_split, Subset
 import os
 import json
+import sys
 
 # default config if issues persist
 DEFAULT_CONFIG = {
@@ -66,6 +67,22 @@ val_transforms = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406],
                          [0.229, 0.224, 0.225])
 ])
+
+# Pre-flight: remove empty class folders (triggers that were created but never populated)
+if os.path.exists(DIRECTORY):
+    for sub in os.listdir(DIRECTORY):
+        sub_path = os.path.join(DIRECTORY, sub)
+        if os.path.isdir(sub_path):
+            files = [f for f in os.listdir(sub_path) if f.lower().endswith(('.jpg','.jpeg','.png','.bmp','.tiff','.webp'))]
+            if len(files) == 0:
+                print(f"Removing empty class folder: {sub}")
+                os.rmdir(sub_path)
+
+# Validate we have at least 2 classes
+remaining = [d for d in os.listdir(DIRECTORY) if os.path.isdir(os.path.join(DIRECTORY, d))]
+if len(remaining) < 2:
+    print(f"ERROR: Need at least 2 gesture classes to train. Found: {remaining}")
+    sys.exit(1)
 
 # load dataset and split
 full_dataset = datasets.ImageFolder(root=DIRECTORY, transform=train_transforms)
