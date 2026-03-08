@@ -30,21 +30,39 @@ EPOCHS = config["epochs"]
 LEARNING_RATE = config["learning_rate"]
 FOLDER_NAME = "test_model.pth"
 KERNEL_SIZE = 3
- 
 
-while True:
-    print("Using Hand or Object Dataset? (h/o)")
-    choice = input().strip().lower()
-
-    if choice == "h":
-        DIRECTORY = os.path.join(PROJECT_ROOT, "pytorch_dataset_hand")
-        break
-    elif choice == "o":
-        DIRECTORY = os.path.join(PROJECT_ROOT, "pytorch_dataset_object")
-        break
-    else:
+# Accept mode from command line (for Flask) or interactive input
+if len(sys.argv) > 1:
+    choice = sys.argv[1].strip().lower()
+else:
+    while True:
+        print("Using Hand or Object Dataset? (h/o)")
+        choice = input().strip().lower()
+        if choice in ("h", "o"):
+            break
         print("Invalid choice. Please enter 'h' or 'o'.")
+
+if choice == "h":
+    DIRECTORY = os.path.join(PROJECT_ROOT, "pytorch_dataset_hand")
+else:
+    DIRECTORY = os.path.join(PROJECT_ROOT, "pytorch_dataset_object")
     
+# pre-flight check: remove empty folders that would crash ImageFolder
+import shutil
+if os.path.exists(DIRECTORY):
+    for d in os.listdir(DIRECTORY):
+        d_path = os.path.join(DIRECTORY, d)
+        if os.path.isdir(d_path):
+            count = len([f for f in os.listdir(d_path) if f.lower().endswith(('.jpg','.jpeg','.png','.webp'))])
+            if count == 0:
+                print(f"Removing empty folder: {d}")
+                shutil.rmtree(d_path)
+    
+    # Check if we have at least 2 classes
+    valid_dirs = [d for d in os.listdir(DIRECTORY) if os.path.isdir(os.path.join(DIRECTORY, d))]
+    if len(valid_dirs) < 2:
+        print("Error: Need at least 2 populated classes to train.", file=sys.stderr)
+        sys.exit(1)
 
 # before starting the processing
 train_transforms = transforms.Compose([
@@ -141,6 +159,8 @@ class neural_network(nn.Module):
         return self.model(x)
 
 
+import time
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model = neural_network(num_classes).to(device)
@@ -149,8 +169,20 @@ optimizer_algo = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer_algo, step_size=5, gamma=0.5)
 
 least_loss = float('inf')
+PROGRESS_FILE = os.path.join(SCRIPT_DIR, "training_progress.json")
+start_time = time.time()
 
 for epoch in range(EPOCHS):
+    # Write progress for UI
+    try:
+        with open(PROGRESS_FILE, "w") as f:
+            json.dump({
+                "epoch": epoch,
+                "total_epochs": EPOCHS,
+                "elapsed_seconds": time.time() - start_time
+            }, f)
+    except:
+        pass
 
     model.train()
     total_loss = 0.0
