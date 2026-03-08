@@ -15,7 +15,7 @@ HOST = '0.0.0.0' # listen on 'all network interfaces'
 PORT = 8000 # recieve messages on this port
 
 wifi_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # creates an object to get messages, where the regular internet protocol is the type and the method of retrieval is the TCP protocol
-wifi_server.bind(HOST, PORT) # make sure the port to listen on and the host IP are configured
+wifi_server.bind((HOST, PORT)) # make sure the port to listen on and the host IP are configured
 wifi_server.listen() # begin listening
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +24,7 @@ PERIPHERALS_PATH = os.path.join(SCRIPT_DIR, "peripherals.json")
 
 if os.path.exists(PERIPHERALS_PATH):
     with open(PERIPHERALS_PATH, "r") as f:
-        std_peripherals = json.load(f).get("standard", PERIPHERALS_PATH)
+        std_peripherals = json.load(f).get("standard", {})
 else:
     print("peripherals.json not found, using defaults.")
 
@@ -32,50 +32,57 @@ found_devices = {}
 
 # start by getting all USB serial ports with devices on them
 for port in ports:
-    try:
-        monitor = serial.Serial(port, 115200, timeout=2) # establishable?
-        time.sleep(2)
-        id = monitor.readline().decode().strip() # check the Peripheral ID
+    for port in ports:
+        monitor = None
+        try:
+            monitor = serial.Serial(port, 115200, timeout=2)
+            monitor.setDTR(False)
+            time.sleep(0.1)
+            monitor.setDTR(True)
+            time.sleep(2)
 
-        if id in std_peripherals: # if the peripheral ID is a key for the standard peripherals, then add it as a key for this monitor object in the dict
-            found_devices[id] = monitor
-        else:
-            monitor.close()
-    except:
-        print("error finding port")
+            id = ""
+            for _ in range(20):  # read up to 20 lines
+                line = monitor.readline().decode(errors='ignore').strip()
+                if line in std_peripherals:
+                    id = line
+                    break
 
-print(f"got {found_devices.keys().__len__} port peripherals")
+            if id:
+                found_devices[id] = monitor
+                print(f"Found: {id}")
+            else:
+                print("ID not found in boot output")
+                monitor.close()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            if monitor:
+                monitor.close()
+
+print(f"got {len(found_devices.keys())} port peripherals")
 
 while True:
-    message_list = []
-    target = ""
-    command = ""
-
     connection, address = wifi_server.accept()
-
+    print(f"Connected from {address}")
     with connection:
-        message = connection.recv(1024).decode().strip() # takes at max 1024 chars from the packet and parses it, cuts whitespace
-        if message:
-
-            # to store the two parts of the message
-            message_list = message.split(",")
+        while True:
+            message = connection.recv(1024).decode().strip()
+            if not message:
+                break
             
-            # if bad message from computer, ignore
+            message_list = message.split(",")
             if len(message_list) < 2:
                 continue
 
-            # first element of the message is the device ID, second is the actual command
             target = message_list[0]
             command = message_list[1]
 
-            # if target UART DNE, ignore
             if target not in found_devices:
                 continue
 
-            tx = found_devices[target] # get the UART port to send to
-            data_type = std_peripherals[target] # get the string name for the type of message to send given the peripheral
-            data_string = UART_m.getMessage(target, command) # get the actual string to send
-
+            tx = found_devices[target]
+            data_type = std_peripherals[target]
+            data_string = UART_m.getMessage(data_type, command)
             tx.write(data_string.encode())
-
             print(f"SENT: {data_string} TO: {tx}")
