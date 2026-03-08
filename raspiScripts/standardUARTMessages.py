@@ -15,13 +15,13 @@ def return_LR_digital(message):
 
     # left and right both high
     match message:
-        case "FORWARD":
+        case "forward":
             return "1,1"
-        case "LEFT":
+        case "left":
             return "-1,1"
-        case "RIGHT":
+        case "right":
             return "1,-1"
-        case "STOP":
+        case "stop":
             return "0,0"
         
 def return_text(message):

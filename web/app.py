@@ -9,9 +9,19 @@ import json
 app = Flask(__name__)
 CORS(app)  # Allow CORS for local testing
 
+from flask import Flask, request, jsonify, send_from_directory
+
+@app.route('/')
+def index():
+    return send_from_directory(SCRIPT_DIR, 'index.html')
+
+@app.route('/<path:filename>')
+def static_files(filename):
+    return send_from_directory(SCRIPT_DIR, filename)
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # SCRIPT_DIR is /Users/ayushgandhi/AutoIMake
-BACKEND_DIR = os.path.join(SCRIPT_DIR, "Autonimake", "backend")
+BACKEND_DIR = os.path.join(SCRIPT_DIR, "..", "backend")  # go up one, then into backend
 
 @app.route('/api/status', methods=['GET'])
 def get_status():
