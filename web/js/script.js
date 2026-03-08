@@ -1,4 +1,4 @@
-const API_BASE = "http://127.0.0.1:5001/api";
+const API_BASE = "http://127.0.0.1:8080/api";
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -151,29 +151,45 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.deleteGesture = async (name) => {
-        if (!confirm(`Are you sure you want to delete the gesture dataset for '${name}'?`)) return;
+        if (!confirm(`Delete all images for identity "${name}"? This cannot be undone.`)) return;
         try {
             const res = await fetch(`${API_BASE}/delete_gesture`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name, mode: selectedMode })
+                body: JSON.stringify({ name: name, mode: selectedMode || 'object' })
             });
+            const data = await res.json();
             if (res.ok) {
-                showToast(`Deleted gesture ${name}`);
-                speak(`Deleted gesture ${name}`);
+                playSuccessSound();
+                showToast(`Deleted "${name}"`);
+                speak(`Deleted ${name}`);
                 loadLibrary();
-                
-                // Remove from active triggers list if it's there
                 triggers = triggers.filter(t => t.name !== name);
                 renderTriggers();
             } else {
-                showToast("Failed to delete gesture");
+                showToast(data.error || "Delete failed");
             }
         } catch (e) {
             console.error(e);
-            showToast("Error deleting gesture");
+            showToast("Delete failed. Check server connection.");
         }
     };
+
+    function playSuccessSound() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.05);
+            gain.gain.setValueAtTime(0.15, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.15);
+        } catch (_) {}
+    }
 
     window.renameGesture = async (oldName) => {
         const newName = prompt(`Rename '${oldName}' to:`);
@@ -214,6 +230,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('mc-object').classList.remove('selected');
         document.getElementById('mc-' + mode).classList.add('selected');
         btnContinue.disabled = false;
+        
+        // Show marker upload section only for object mode
+        const markerSection = document.getElementById('marker-upload-section');
+        if (markerSection) markerSection.style.display = mode === 'object' ? 'block' : 'none';
         
         typeTerminal(`Selected: ${mode === 'hands' ? 'Hand Recognition' : 'Custom Object'} Mode.`);
         
@@ -411,15 +431,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast("Model Training Successful!");
                 go('live');
             } else {
-                showToast("Training failed. Check server logs.");
-                console.error(data);
+                const errMsg = data.error || "Training failed";
+                showToast(errMsg);
+                speak(errMsg);
+                if (data.details) console.error("Training details:", data.details);
             }
         } catch (e) {
             clearInterval(progressInterval);
             overlay.classList.remove('active');
-            console.error(e);
-            showToast("Failed to connect to backend compiler.");
-            go('live');
+            showToast("Failed to connect. Is the server running?");
         }
     };
 
@@ -615,5 +635,86 @@ document.addEventListener('DOMContentLoaded', () => {
             speak("Hardware disconnected. Returning to simulation mode.");
         }
     });
+
+    // --- Marker Image Upload (Object mode) ---
+    let pendingMarkerFiles = [];
+    const markerFileInput = document.getElementById('marker-file-input');
+    const btnUploadMarker = document.getElementById('btn-upload-marker');
+    const markerUploadStatus = document.getElementById('marker-upload-status');
+
+    if (markerFileInput) {
+        markerFileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files || []);
+            pendingMarkerFiles = files;
+            const labelInput = document.getElementById('marker-label');
+            const hasLabel = labelInput && labelInput.value.trim().length > 0;
+            if (btnUploadMarker) btnUploadMarker.disabled = !(files.length > 0 && hasLabel);
+            if (markerUploadStatus) {
+                markerUploadStatus.textContent = files.length > 0
+                    ? `${files.length} file(s). Enter identity tag and click Upload.`
+                    : '';
+            }
+        });
+    }
+
+    if (btnUploadMarker) {
+        btnUploadMarker.addEventListener('click', async () => {
+            if (pendingMarkerFiles.length === 0) return;
+            const labelInput = document.getElementById('marker-label');
+            const label = (labelInput?.value || '').trim();
+            if (!label) {
+                showToast('Enter an identity tag (e.g. forward, stop)');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('label', label);
+
+            const isZip = pendingMarkerFiles.length === 1 && pendingMarkerFiles[0].name.toLowerCase().endsWith('.zip');
+            if (isZip) {
+                formData.append('zip', pendingMarkerFiles[0]);
+            } else {
+                pendingMarkerFiles.forEach((f) => formData.append('files', f));
+            }
+
+            if (markerUploadStatus) markerUploadStatus.textContent = 'Uploading & training...';
+            btnUploadMarker.disabled = true;
+
+            try {
+                const res = await fetch(`${API_BASE}/upload_marker_images`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    playSuccessSound();
+                    showToast(`✓ ${data.saved_count} image(s) → identity "${data.label}"`);
+                    if (markerUploadStatus) markerUploadStatus.textContent = `✓ ${data.saved_count} image(s) saved as "${data.label}"`;
+                    pendingMarkerFiles = [];
+                    if (markerFileInput) markerFileInput.value = '';
+                    if (labelInput) labelInput.value = '';
+                    loadLibrary();
+                } else {
+                    showToast(data.error || 'Upload failed');
+                    if (markerUploadStatus) markerUploadStatus.textContent = data.error || 'Upload failed';
+                }
+            } catch (e) {
+                showToast('Upload failed. Is the Flask server running?');
+                if (markerUploadStatus) markerUploadStatus.textContent = 'Upload failed';
+            }
+            btnUploadMarker.disabled = true;
+            if (markerFileInput) markerFileInput.value = '';
+            pendingMarkerFiles = [];
+        });
+    }
+
+    // Enable upload when files selected AND label entered
+    const markerLabelInput = document.getElementById('marker-label');
+    if (markerFileInput && markerLabelInput) {
+        const checkUploadReady = () => {
+            if (btnUploadMarker) btnUploadMarker.disabled = !(pendingMarkerFiles.length > 0 && markerLabelInput.value.trim());
+        };
+        markerLabelInput.addEventListener('input', checkUploadReady);
+        markerLabelInput.addEventListener('change', checkUploadReady);
+    }
 
 });

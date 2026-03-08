@@ -191,6 +191,7 @@ body{font-family:'Outfit',sans-serif;background:#ddd8cf;}
 @keyframes riseIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
 `;
 
+const API_BASE = "http://127.0.0.1:8080/api";
 const mk = () => ({ id: crypto.randomUUID(), name: "", comment: "", video: "", file: "" });
 
 export default function AutoniMAKE() {
@@ -202,6 +203,9 @@ export default function AutoniMAKE() {
   const [toast,  setToast]        = useState(null);
   const [firing, setFiring]       = useState(null);
   const [camFlash, setCamFlash]   = useState(false);
+  const [markerFiles, setMarkerFiles] = useState([]);
+  const [markerLabel, setMarkerLabel]  = useState("");
+  const [markerUploading, setMarkerUploading] = useState(false);
   const toastRef = useRef(null);
   const tx = useRef(null);
 
@@ -251,8 +255,8 @@ export default function AutoniMAKE() {
           <div className="grain"/>
           <div className="glow glow-a"/><div className="glow glow-b"/><div className="glow glow-c"/>
           <div className="splash-inner">
-            <div className="s-eye">Gesture Intelligence Platform</div>
-            <div className="s-title">Welcome to<br/><em>AutoniMAKE</em></div>
+            <div className="s-eye">Vision-Controlled Intelligence</div>
+            <div className="s-title">Welcome to<br/><span style={{color:"#1A4FDE"}}>AUTO</span><span style={{color:"#5B8FF8",fontStyle:"italic"}}>i</span><span style={{color:"#34D399"}}>MOVE</span></div>
             <div className="s-sub">Train. Trigger. Control. Anything.</div>
           </div>
           <div className="swipe-cue">
@@ -368,6 +372,50 @@ export default function AutoniMAKE() {
                 </div>
               </div>
             ))}
+
+            {mode === "object" && (
+              <div className="tc-card" style={{marginTop:8}}>
+                <div className="tc-top">
+                  <div className="tc-num">
+                    <div className="tc-badge">📷</div>
+                    <div className="tc-lbl">Train with Images</div>
+                  </div>
+                </div>
+                <div className="ey">Identity tag = trigger name</div>
+                <p style={{fontSize:11,color:"var(--muted)",marginBottom:10}}>Give images an identity. When the camera sees that pattern, it triggers that behavior.</p>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                  <input type="text" value={markerLabel} onChange={e=>setMarkerLabel(e.target.value)} placeholder="e.g. forward, stop" className="f" style={{flex:1,minWidth:120,padding:"10px 14px"}}/>
+                  <label className={`upz${markerFiles.length?" got":""}`} style={{flex:1,minWidth:140}}>
+                    <div className="up-ico">{markerFiles.length?"📂":"📷"}</div>
+                    <div>
+                      <div className="up-title">{markerFiles.length?`${markerFiles.length} file(s)`:"Select images or ZIP"}</div>
+                      <div className="up-sub">JPG, PNG, or .zip</div>
+                    </div>
+                    <input type="file" className="up-input" multiple accept="image/*,.zip"
+                      onChange={e=>setMarkerFiles(Array.from(e.target.files||[]))}/>
+                  </label>
+                  <button className="btn btn-p" disabled={!markerFiles.length||!markerLabel.trim()||markerUploading}
+                    onClick={async()=>{
+                      if(!markerFiles.length||!markerLabel.trim())return;
+                      setMarkerUploading(true);
+                      const fd=new FormData();
+                      fd.append("label",markerLabel.trim());
+                      const isZip=markerFiles.length===1&&markerFiles[0].name.toLowerCase().endsWith(".zip");
+                      if(isZip)fd.append("zip",markerFiles[0]);
+                      else markerFiles.forEach(f=>fd.append("files",f));
+                      try{
+                        const r=await fetch(`${API_BASE}/upload_marker_images`,{method:"POST",body:fd});
+                        const d=await r.json();
+                        if(r.ok){ setToast(`✓ ${d.saved_count} image(s) → "${d.label}"`); setMarkerFiles([]); setMarkerLabel(""); }
+                        else setToast(d.error||"Upload failed");
+                      }catch{ setToast("Upload failed"); }
+                      setMarkerUploading(false);
+                    }}>
+                    {markerUploading?"Uploading…":"Upload & Train"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <button className="btn btn-g" onClick={addTrig}>+ Add Another Trigger</button>
             <div className="r2">

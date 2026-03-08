@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoniMAKE Desktop</title>
-    <!-- Fonts -->
+    <title>AUTOiMOVE — Vision-Controlled Intelligence</title>
+    <!-- Fonts: Bold display + clean UI -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
 </head>
@@ -23,33 +23,32 @@
   <!-- Loading Overlay for Model Training -->
   <div id="loading-overlay" class="loading-overlay">
       <div class="spinner"></div>
-      <h3 style="color: var(--white); font-weight: 500;">Training PyTorch Model...</h3>
-      <p style="color: var(--muted); font-size: 14px;">This may take a moment. Running backend script.</p>
+      <h3 style="color: var(--cream); font-weight: 500;">Training Model...</h3>
+      <p style="color: var(--muted); font-size: 14px;">Your images are teaching the AI. Almost there.</p>
       
-      <!-- Training Progress UI -->
       <div style="width: 300px; margin-top: 20px; text-align: left;">
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-              <span id="progress-percent" style="color: var(--white); font-weight: 600;">0%</span>
-              <span id="progress-eta" style="color: var(--accent); font-size: 14px;">Calculating ETA...</span>
+              <span id="progress-percent" style="color: var(--cream); font-weight: 600;">0%</span>
+              <span id="progress-eta" style="color: var(--cream-muted); font-size: 14px;">Calculating ETA...</span>
           </div>
-          <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
-              <div id="progress-fill" style="width: 0%; height: 100%; background: var(--accent); transition: width 0.3s ease;"></div>
+          <div style="width: 100%; height: 8px; background: rgba(245,240,232,0.1); border-radius: 4px; overflow: hidden;">
+              <div id="progress-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--purple), var(--purple-light)); transition: width 0.3s ease;"></div>
           </div>
       </div>
   </div>
 
   <!-- ==================== SPLASH SCREEN ==================== -->
   <div id="screen-splash" class="screen splash active">
-    <!-- Orbs for aesthetic -->
     <div class="glow-orb-1"></div>
     <div class="glow-orb-2"></div>
+    <div class="particle-field"></div>
 
     <div class="splash-content">
-      <h1>Welcome to</h1>
-      <h1><span class="serif-italic">Autoni</span>MAKE</h1>
+      <h1 class="splash-welcome">Welcome to</h1>
+      <h1 class="brand-title"><span class="brand-auto">AUTO</span><span class="brand-i">i</span><span class="brand-move">MOVE</span></h1>
+      <p class="splash-tagline">Vision-controlled intelligence. Train. Trigger. Control.</p>
     </div>
 
-    <!-- Desktop Action Button -->
     <div class="desktop-start-action">
       <button class="btn-primary-large" onclick="go('personalize')">Get Started &rarr;</button>
     </div>
@@ -108,6 +107,23 @@
         </div>
         <div id="library-container" style="background: rgba(0,0,0,0.2); border: 1px dashed var(--muted); border-radius: 12px; padding: 16px;">
             <p style="color: var(--muted); font-size: 14px; text-align: center; margin: 0;">Loading existing gestures...</p>
+        </div>
+
+        <!-- Image Upload: Identity Tag = Trigger Name -->
+        <div id="marker-upload-section" class="marker-upload-section" style="display:none; margin-top: 16px;">
+          <div class="tc-title" style="margin-bottom: 8px;">
+            <span>📷 Train with Your Images</span>
+          </div>
+          <p style="font-size: 12px; color: var(--muted); margin-bottom: 10px;">Upload images and give them an <strong>identity tag</strong>. When the camera sees that pattern, it triggers that behavior. Images or ZIP.</p>
+          <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; align-items: center;">
+            <input type="text" id="marker-label" placeholder="e.g. forward, stop, turn_left" style="padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--navy); color: var(--cream); font-size: 13px; min-width: 160px;">
+            <label class="btn-outline" style="cursor: pointer; margin: 0; display: inline-flex; align-items: center; gap: 6px;">
+              <input type="file" id="marker-file-input" multiple accept="image/*,.zip" style="display: none;">
+              📂 Select Images or ZIP
+            </label>
+            <button id="btn-upload-marker" class="btn-solid" style="padding: 10px 18px;" disabled>Upload & Train</button>
+          </div>
+          <div id="marker-upload-status" style="font-size: 12px; color: var(--muted); min-height: 20px;"></div>
         </div>
 
         <div class="tc-title" style="margin-top: 10px;">
