@@ -6,6 +6,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, random_split, Subset
 import os
 import json
+import sys
 
 # default config if issues persist
 DEFAULT_CONFIG = {
@@ -29,20 +30,22 @@ EPOCHS = config["epochs"]
 LEARNING_RATE = config["learning_rate"]
 FOLDER_NAME = "test_model.pth"
 KERNEL_SIZE = 3
- 
 
-while True:
-    print("Using Hand or Object Dataset? (h/o)")
-    choice = input().strip().lower()
-
-    if choice == "h":
-        DIRECTORY = os.path.join(PROJECT_ROOT, "pytorch_dataset_hand")
-        break
-    elif choice == "o":
-        DIRECTORY = os.path.join(PROJECT_ROOT, "pytorch_dataset_object")
-        break
-    else:
+# Accept mode from command line (for Flask) or interactive input
+if len(sys.argv) > 1:
+    choice = sys.argv[1].strip().lower()
+else:
+    while True:
+        print("Using Hand or Object Dataset? (h/o)")
+        choice = input().strip().lower()
+        if choice in ("h", "o"):
+            break
         print("Invalid choice. Please enter 'h' or 'o'.")
+
+if choice == "h":
+    DIRECTORY = os.path.join(PROJECT_ROOT, "pytorch_dataset_hand")
+else:
+    DIRECTORY = os.path.join(PROJECT_ROOT, "pytorch_dataset_object")
     
 
 # before starting the processing

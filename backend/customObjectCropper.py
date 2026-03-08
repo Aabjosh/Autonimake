@@ -1,12 +1,16 @@
 import cv2
 import os
+import sys
 
 # ensure dataset always goes to project root
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 DATASET_DIR = os.path.join(PROJECT_ROOT, "pytorch_dataset_object")
 
-SUBFOLDER = input("Enter a label with no special characters or anything...\n").strip()
+if len(sys.argv) > 1:
+    SUBFOLDER = sys.argv[1].strip()
+else:
+    SUBFOLDER = input("Enter a label with no special characters or anything...\n").strip()
 
 # use DATASET_DIR 
 folder = os.path.join(DATASET_DIR, SUBFOLDER)

@@ -4,18 +4,21 @@ import torch.nn as nn
 from torchvision import transforms
 from PIL import Image
 import os
+import json
+import time
 import mediapipe as mp
 
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 DATASET_DIR  = os.path.join(PROJECT_ROOT, "pytorch_dataset_hand")
-MODEL_PATH   = os.path.join(PROJECT_ROOT, "test_model.pth")
+MODEL_PATH   = os.path.join(SCRIPT_DIR, "test_model.pth")  # fix: model is saved in backend/
+DETECTION_OUTPUT = os.path.join(SCRIPT_DIR, "detection_output.json")
 
 KERNEL_SIZE = 3
 CONFIDENCE_THRESHOLD = 60.0
 
 # load classes
-classes = sorted(os.listdir(DATASET_DIR))
+classes = sorted([d for d in os.listdir(DATASET_DIR) if os.path.isdir(os.path.join(DATASET_DIR, d))])
 num_classes = len(classes)
 print(f"Classes: {classes}")
 
@@ -68,6 +71,18 @@ def preprocess(frame):
     img = Image.fromarray(img)
     return infer_transforms(img).unsqueeze(0).to(device)
 
+def write_detection(label, confidence):
+    """Write the latest detection to a JSON file for the UI to poll."""
+    try:
+        with open(DETECTION_OUTPUT, "w") as f:
+            json.dump({
+                "label": label,
+                "confidence": round(confidence, 1),
+                "timestamp": time.time()
+            }, f)
+    except:
+        pass
+
 # Mediapipe
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(min_detection_confidence=0.7,
@@ -78,67 +93,80 @@ cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH,1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT,720)
 
-while True:
+# Throttle detections: only send to UI every 1 second
+last_sent_time = 0
+SEND_INTERVAL = 1.0
 
-    ret, frame = cap.read()
-    frame = cv2.flip(frame,1)
+try:
+    while True:
 
-    if not ret:
-        break
+        ret, frame = cap.read()
+        frame = cv2.flip(frame,1)
 
-    h, w, _ = frame.shape
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        if not ret:
+            break
 
-    results = hands.process(rgb)
+        h, w, _ = frame.shape
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    display = frame.copy()
+        results = hands.process(rgb)
 
-    if results.multi_hand_landmarks:
-        
-        hand_landmarks = results.multi_hand_landmarks[0]
-        mp.solutions.drawing_utils.draw_landmarks(frame, hand_landmarks, mp.solutions.hands.HAND_CONNECTIONS)
-        xs = []
-        ys = []
+        display = frame.copy()
 
-        for lm in hand_landmarks.landmark:
-            xs.append(int(lm.x * w))
-            ys.append(int(lm.y * h))
+        if results.multi_hand_landmarks:
+            
+            hand_landmarks = results.multi_hand_landmarks[0]
+            mp.solutions.drawing_utils.draw_landmarks(frame, hand_landmarks, mp.solutions.hands.HAND_CONNECTIONS)
+            xs = []
+            ys = []
 
-        x_min = max(min(xs) - 20, 0)
-        x_max = min(max(xs) + 20, w)
-        y_min = max(min(ys) - 20, 0)
-        y_max = min(max(ys) + 20, h)
+            for lm in hand_landmarks.landmark:
+                xs.append(int(lm.x * w))
+                ys.append(int(lm.y * h))
 
-        roi = frame[y_min:y_max, x_min:x_max]
+            x_min = max(min(xs) - 20, 0)
+            x_max = min(max(xs) + 20, w)
+            y_min = max(min(ys) - 20, 0)
+            y_max = min(max(ys) + 20, h)
 
-        if roi.size != 0:
+            roi = frame[y_min:y_max, x_min:x_max]
 
-            with torch.no_grad():
+            if roi.size != 0:
 
-                outputs = model(preprocess(roi))
-                probs   = torch.softmax(outputs, dim=1)
+                with torch.no_grad():
 
-                conf, pred = torch.max(probs,1)
+                    outputs = model(preprocess(roi))
+                    probs   = torch.softmax(outputs, dim=1)
 
-                label = classes[pred.item()]
-                conf  = conf.item()*100
+                    conf, pred = torch.max(probs,1)
 
-            color = (0,255,0) if conf >= CONFIDENCE_THRESHOLD else (0,0,255)
+                    label = classes[pred.item()]
+                    conf  = conf.item()*100
 
-            cv2.rectangle(display,(x_min,y_min),(x_max,y_max),color,2)
+                color = (0,255,0) if conf >= CONFIDENCE_THRESHOLD else (0,0,255)
 
-            if conf >= CONFIDENCE_THRESHOLD:
-                text = f"{label} {conf:.1f}%"
-            else:
-                text = "unknown"
+                cv2.rectangle(display,(x_min,y_min),(x_max,y_max),color,2)
 
-            cv2.putText(display,text,(x_min,y_min-10),
-                        cv2.FONT_HERSHEY_SIMPLEX,0.9,color,2)
+                if conf >= CONFIDENCE_THRESHOLD:
+                    text = f"{label} {conf:.1f}%"
+                    # Write to shared file for UI polling (throttled)
+                    now = time.time()
+                    if now - last_sent_time >= SEND_INTERVAL:
+                        write_detection(label, conf)
+                        last_sent_time = now
+                else:
+                    text = "unknown"
 
-    cv2.imshow("Recognition", display)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+                cv2.putText(display,text,(x_min,y_min-10),
+                            cv2.FONT_HERSHEY_SIMPLEX,0.9,color,2)
 
-cap.release()
-hands.close()
-cv2.destroyAllWindows()
+        cv2.imshow("Recognition", display)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+finally:
+    cap.release()
+    hands.close()
+    cv2.destroyAllWindows()
+    # Clean up detection file
+    if os.path.exists(DETECTION_OUTPUT):
+        os.remove(DETECTION_OUTPUT)
