@@ -14,13 +14,13 @@ void clearLine() {
 
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(11520);
   u8g2.begin();
   u8g2.setFont(u8g2_font_ncenB08_tr);
 }
 
 void loop() {
-  
+
   Serial.println(PERIPHERAL_ID);
   bool updated = false;
 
