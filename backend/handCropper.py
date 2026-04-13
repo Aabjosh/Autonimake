@@ -9,6 +9,7 @@ import urllib.request
 
 # Resolve model path relative to THIS script's directory
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 MODEL_PATH = os.path.join(SCRIPT_DIR, "hand_landmarker.task")
 
 if not os.path.exists(MODEL_PATH):
@@ -30,10 +31,11 @@ if len(sys.argv) > 1:
 else:
     SUBFOLDER = input("Enter a label with no special characters or anything...\n").strip()
 
-folder = os.path.join('pytorch_dataset', SUBFOLDER)
+DATASET_DIR = os.path.join(PROJECT_ROOT, "pytorch_dataset_hand")
+folder = os.path.join(DATASET_DIR, SUBFOLDER)
 os.makedirs(folder, exist_ok=True)
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 

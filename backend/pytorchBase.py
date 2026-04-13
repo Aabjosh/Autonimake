@@ -47,17 +47,36 @@ if choice == "h":
 else:
     DIRECTORY = os.path.join(PROJECT_ROOT, "pytorch_dataset_object")
     
-# pre-flight check: remove empty folders that would crash ImageFolder
+# pre-flight check: remove empty folders AND corrupt images
 import shutil
+from PIL import Image
+
 if os.path.exists(DIRECTORY):
+    removed_corrupt = 0
     for d in os.listdir(DIRECTORY):
         d_path = os.path.join(DIRECTORY, d)
-        if os.path.isdir(d_path):
-            count = len([f for f in os.listdir(d_path) if f.lower().endswith(('.jpg','.jpeg','.png','.webp'))])
-            if count == 0:
-                print(f"Removing empty folder: {d}")
-                shutil.rmtree(d_path)
-    
+        if not os.path.isdir(d_path):
+            continue
+        # Validate each image file — remove corrupt ones
+        for f in os.listdir(d_path):
+            f_path = os.path.join(d_path, f)
+            if not f.lower().endswith(('.jpg','.jpeg','.png','.webp','.bmp','.tiff')):
+                continue
+            try:
+                img = Image.open(f_path)
+                img.verify()
+            except Exception:
+                print(f"Removing corrupt image: {d}/{f}")
+                os.remove(f_path)
+                removed_corrupt += 1
+        # Now check if folder is empty
+        img_count = len([f for f in os.listdir(d_path) if f.lower().endswith(('.jpg','.jpeg','.png','.webp','.bmp','.tiff'))])
+        if img_count == 0:
+            print(f"Removing empty folder: {d}")
+            shutil.rmtree(d_path)
+    if removed_corrupt > 0:
+        print(f"Cleaned up {removed_corrupt} corrupt image(s)")
+
     # Check if we have at least 2 classes
     valid_dirs = [d for d in os.listdir(DIRECTORY) if os.path.isdir(os.path.join(DIRECTORY, d))]
     if len(valid_dirs) < 2:
@@ -68,14 +87,14 @@ if os.path.exists(DIRECTORY):
 train_transforms = transforms.Compose([
     transforms.Resize((256, 256)),
     transforms.RandomHorizontalFlip(),
-    transforms.RandomVerticalFlip(),              # fix: added more augmentation
-    transforms.RandomGrayscale(p=0.1),            # fix: added more augmentation
-    transforms.RandomPerspective(distortion_scale=0.2), # fix: added more augmentation
+    transforms.RandomVerticalFlip(),
+    transforms.RandomGrayscale(p=0.1),
+    transforms.RandomPerspective(distortion_scale=0.2),
     transforms.RandomRotation(10),
     transforms.ColorJitter(brightness=0.3, contrast=0.3),
     transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], # RGB mean
-                         [0.229, 0.224, 0.225]) # RGB std
+    transforms.Normalize([0.485, 0.456, 0.406],
+                         [0.229, 0.224, 0.225])
 ])
 
 # validation images
@@ -86,15 +105,15 @@ val_transforms = transforms.Compose([
                          [0.229, 0.224, 0.225])
 ])
 
-# Pre-flight: remove empty class folders (triggers that were created but never populated)
-if os.path.exists(DIRECTORY):
-    for sub in os.listdir(DIRECTORY):
-        sub_path = os.path.join(DIRECTORY, sub)
-        if os.path.isdir(sub_path):
-            files = [f for f in os.listdir(sub_path) if f.lower().endswith(('.jpg','.jpeg','.png','.bmp','.tiff','.webp'))]
-            if len(files) == 0:
-                print(f"Removing empty class folder: {sub}")
-                os.rmdir(sub_path)
+# Safe dataset wrapper: catches any remaining bad images at load time
+class SafeImageFolder(datasets.ImageFolder):
+    def __getitem__(self, index):
+        try:
+            return super().__getitem__(index)
+        except Exception as e:
+            print(f"Skipping bad image at index {index}: {e}")
+            # Return a different valid sample instead
+            return super().__getitem__((index + 1) % len(self))
 
 # Validate we have at least 2 classes
 remaining = [d for d in os.listdir(DIRECTORY) if os.path.isdir(os.path.join(DIRECTORY, d))]
@@ -103,7 +122,7 @@ if len(remaining) < 2:
     sys.exit(1)
 
 # load dataset and split
-full_dataset = datasets.ImageFolder(root=DIRECTORY, transform=train_transforms)
+full_dataset = SafeImageFolder(root=DIRECTORY, transform=train_transforms)
 num_classes = len(full_dataset.classes)
 print(f"Classes: {full_dataset.classes}")
 
@@ -221,7 +240,7 @@ for epoch in range(EPOCHS):
     print(f"Epoch {epoch+1}/{EPOCHS} | Loss: {total_loss:.4f} | Train Acc: {train_accuracy:.2f}% | Val Acc: {val_accuracy:.2f}%")
 
     if total_loss < least_loss:
-        torch.save(model.state_dict(), FOLDER_NAME)
+        torch.save(model.state_dict(), os.path.join(SCRIPT_DIR, FOLDER_NAME))
         least_loss = total_loss
         print(f"Saved best model ({val_accuracy:.2f}%)")
 

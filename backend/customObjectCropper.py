@@ -16,7 +16,7 @@ else:
 folder = os.path.join(DATASET_DIR, SUBFOLDER)
 os.makedirs(folder, exist_ok=True)
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
@@ -29,7 +29,7 @@ ret, frame = cap.read()
 height, width, _ = frame.shape
 print(f"Resolution: {width}x{height}")
 
-box_size = 600
+box_size = 240
 x1 = (width // 2) - (box_size // 2)
 y1 = (height // 2) - (box_size // 2)
 x2 = (width // 2) + (box_size // 2)

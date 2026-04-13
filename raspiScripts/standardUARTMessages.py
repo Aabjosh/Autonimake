@@ -12,17 +12,17 @@ def getMessage(datatype, message):
     return output
 
 def return_LR_digital(message):
-
+    return message
     # left and right both high
-    match message:
-        case "forward":
-            return "1,1"
-        case "left":
-            return "-1,1"
-        case "right":
-            return "1,-1"
-        case "stop":
-            return "0,0"
+    # match message:
+    #     case "forward":
+    #         return "1,1"
+    #     case "left":
+    #         return "-1,1"
+    #     case "right":
+    #         return "1,-1"
+    #     case "stop":
+    #         return "0,0"
         
 def return_text(message):
-    return message
+    return message + "\n"

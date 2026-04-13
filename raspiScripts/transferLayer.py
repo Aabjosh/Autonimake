@@ -15,6 +15,7 @@ HOST = '0.0.0.0' # listen on 'all network interfaces'
 PORT = 8000 # recieve messages on this port
 
 wifi_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # creates an object to get messages, where the regular internet protocol is the type and the method of retrieval is the TCP protocol
+wifi_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # add this line
 wifi_server.bind((HOST, PORT)) # make sure the port to listen on and the host IP are configured
 wifi_server.listen() # begin listening
 
@@ -32,33 +33,32 @@ found_devices = {}
 
 # start by getting all USB serial ports with devices on them
 for port in ports:
-    for port in ports:
-        monitor = None
-        try:
-            monitor = serial.Serial(port, 115200, timeout=2)
-            monitor.setDTR(False)
-            time.sleep(0.1)
-            monitor.setDTR(True)
-            time.sleep(2)
+    monitor = None
+    try:
+        monitor = serial.Serial(port, 115200, timeout=2)
+        monitor.setDTR(False)
+        time.sleep(0.1)
+        monitor.setDTR(True)
+        time.sleep(2)
 
-            id = ""
-            for _ in range(20):  # read up to 20 lines
-                line = monitor.readline().decode(errors='ignore').strip()
-                if line in std_peripherals:
-                    id = line
-                    break
+        id = ""
+        for _ in range(20):
+            line = monitor.readline().decode(errors='ignore').strip()
+            if line in std_peripherals:
+                id = line
+                break
 
-            if id:
-                found_devices[id] = monitor
-                print(f"Found: {id}")
-            else:
-                print("ID not found in boot output")
-                monitor.close()
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            if monitor:
-                monitor.close()
+        if id:
+            found_devices[id] = monitor
+            print(f"Found: {id}")
+        else:
+            print(f"ID not found in boot output for {port}")
+            monitor.close()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        if monitor:
+            monitor.close()
 
 print(f"got {len(found_devices.keys())} port peripherals")
 
@@ -83,6 +83,14 @@ while True:
 
             tx = found_devices[target]
             data_type = std_peripherals[target]
+
+            if data_type == None:
+                continue
+
             data_string = UART_m.getMessage(data_type, command)
+
+            if data_string == None:
+                continue
+
             tx.write(data_string.encode())
             print(f"SENT: {data_string} TO: {tx}")

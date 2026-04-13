@@ -8,11 +8,16 @@ import json
 import time
 import mediapipe as mp
 import socket
+import subprocess
+
+# code for running powershell commands
+subprocess.Popen(['ssh', 'pi@raspberrypi.local', 'python3', 'transferLayer.py'])
+time.sleep(3)  # give the Pi time to start listening
 
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 DATASET_DIR  = os.path.join(PROJECT_ROOT, "pytorch_dataset_hand")
-MODEL_PATH   = os.path.join(SCRIPT_DIR, "test_model.pth")  # fix: model is saved in backend/
+MODEL_PATH   = os.path.join(SCRIPT_DIR, "test_model.pth")
 DETECTION_OUTPUT = os.path.join(SCRIPT_DIR, "detection_output.json")
 
 KERNEL_SIZE = 3
@@ -21,9 +26,31 @@ CONFIDENCE_THRESHOLD = 60.0
 HUB_IP = '172.20.10.8'
 PORT = 8000
 
-# wifi stuff for connecting to pi
-wifi_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-wifi_server.connect((HUB_IP, PORT))
+# wifi stuff for connecting to pi (optional — won't crash if Pi is offline)
+wifi_server = None
+try:
+    wifi_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    wifi_server.connect((HUB_IP, PORT))
+    print(f"Connected to rover at {HUB_IP}:{PORT}")
+except Exception as e:
+    print(f"Warning: Could not connect to rover ({e}). Running in local-only mode.")
+    wifi_server = None
+
+def send_to_rover(label):
+    global wifi_server
+    if not wifi_server:
+        try:
+            wifi_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            wifi_server.connect((HUB_IP, PORT))
+            print("Reconnected to rover")
+        except Exception as e:
+            wifi_server = None
+            return
+    try:
+        wifi_server.sendall((f"ESP32_SCREEN,{label}").encode())
+    except Exception as e:
+        print(f"Lost connection to rover: {e}, will retry next time")
+        wifi_server = None
 
 # load classes
 classes = sorted([d for d in os.listdir(DATASET_DIR) if os.path.isdir(os.path.join(DATASET_DIR, d))])
@@ -39,19 +66,14 @@ class neural_network(nn.Module):
         self.model = nn.Sequential(
             nn.Conv2d(3, 16, KERNEL_SIZE, padding=1),
             nn.BatchNorm2d(16), nn.ReLU(), nn.MaxPool2d(2,2),
-
             nn.Conv2d(16, 32, KERNEL_SIZE, padding=1),
             nn.BatchNorm2d(32), nn.ReLU(), nn.MaxPool2d(2,2),
-
             nn.Conv2d(32, 64, KERNEL_SIZE, padding=1),
             nn.BatchNorm2d(64), nn.ReLU(), nn.MaxPool2d(2,2),
-
             nn.Conv2d(64, 128, KERNEL_SIZE, padding=1),
             nn.BatchNorm2d(128), nn.ReLU(), nn.MaxPool2d(2,2),
-
             nn.Conv2d(128, 256, KERNEL_SIZE, padding=1),
             nn.BatchNorm2d(256), nn.ReLU(), nn.MaxPool2d(2,2),
-
             nn.Flatten(),
             nn.Linear(16384, 256),
             nn.ReLU(),
@@ -80,7 +102,6 @@ def preprocess(frame):
     return infer_transforms(img).unsqueeze(0).to(device)
 
 def write_detection(label, confidence):
-    """Write the latest detection to a JSON file for the UI to poll."""
     try:
         with open(DETECTION_OUTPUT, "w") as f:
             json.dump({
@@ -97,17 +118,20 @@ hands = mp_hands.Hands(min_detection_confidence=0.7,
                        min_tracking_confidence=0.7)
 
 # webcam
-cap = cv2.VideoCapture(0)
+print("Initializing camera...")
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH,1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT,720)
 
-# Throttle detections: only send to UI every 1 second
+# Throttle & Smoothing
 last_sent_time = 0
-SEND_INTERVAL = 1.0
+SEND_INTERVAL = 3.0
+smoothing_buffer = []
+BUFFER_SIZE = 3
+last_sent_label = None
 
 try:
     while True:
-
         ret, frame = cap.read()
         frame = cv2.flip(frame,1)
 
@@ -116,13 +140,10 @@ try:
 
         h, w, _ = frame.shape
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
         results = hands.process(rgb)
-
         display = frame.copy()
 
         if results.multi_hand_landmarks:
-            
             hand_landmarks = results.multi_hand_landmarks[0]
             mp.solutions.drawing_utils.draw_landmarks(frame, hand_landmarks, mp.solutions.hands.HAND_CONNECTIONS)
             xs = []
@@ -140,33 +161,44 @@ try:
             roi = frame[y_min:y_max, x_min:x_max]
 
             if roi.size != 0:
-
                 with torch.no_grad():
-
                     outputs = model(preprocess(roi))
                     probs   = torch.softmax(outputs, dim=1)
-
                     conf, pred = torch.max(probs,1)
-
                     label = classes[pred.item()]
                     conf  = conf.item()*100
 
-                color = (0,255,0) if conf >= CONFIDENCE_THRESHOLD else (0,0,255)
+                    if conf >= CONFIDENCE_THRESHOLD:
+                        smoothing_buffer.append(label)
+                    else:
+                        smoothing_buffer.append("unknown")
 
-                cv2.rectangle(display,(x_min,y_min),(x_max,y_max),color,2)
+                    if len(smoothing_buffer) > BUFFER_SIZE:
+                        smoothing_buffer.pop(0)
 
-                if conf >= CONFIDENCE_THRESHOLD:
-                    text = f"{label} {conf:.1f}%"
-                    # Write to shared file for UI polling (throttled)
-                    now = time.time()
-                    if now - last_sent_time >= SEND_INTERVAL:
-                        write_detection(label, conf)
-                        last_sent_time = now
-                else:
-                    text = "unknown"
+                    committed_label = smoothing_buffer[0] if len(smoothing_buffer) == BUFFER_SIZE and len(set(smoothing_buffer)) == 1 else "unknown"
 
-                cv2.putText(display,text,(x_min,y_min-10),
-                            cv2.FONT_HERSHEY_SIMPLEX,0.9,color,2)
+                    color = (0,255,0) if committed_label != "unknown" else (0,0,255)
+                    cv2.rectangle(display,(x_min,y_min),(x_max,y_max),color,2)
+
+                    if committed_label != "unknown":
+                        text = f"{committed_label} {conf:.1f}%"
+
+                        # Only send to rover when label changes
+                        if committed_label != last_sent_label:
+                            send_to_rover(committed_label)
+                            last_sent_label = committed_label
+
+                        # Write to shared file for UI polling (throttled)
+                        now = time.time()
+                        if now - last_sent_time >= SEND_INTERVAL:
+                            write_detection(committed_label, conf)
+                            last_sent_time = now
+                    else:
+                        text = "unknown"
+
+                    cv2.putText(display,text,(x_min,y_min-10),
+                                cv2.FONT_HERSHEY_SIMPLEX,0.9,color,2)
 
         cv2.imshow("Recognition", display)
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -175,6 +207,5 @@ finally:
     cap.release()
     hands.close()
     cv2.destroyAllWindows()
-    # Clean up detection file
     if os.path.exists(DETECTION_OUTPUT):
         os.remove(DETECTION_OUTPUT)

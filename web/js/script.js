@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let previousScreen = '';
     let selectedMode = null; // 'hands' or 'object'
     let triggers = [];
-    
+
     // UUID generator
     function uuidv4() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!voiceEnabled || !synth) return;
         synth.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.95; 
+        utterance.rate = 0.95;
         utterance.pitch = 1.0;
         synth.speak(utterance);
     }
@@ -53,11 +53,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Screen Navigation ---
     window.go = (targetScreen) => {
         if (currentScreen === targetScreen) return;
-        
+
         const oldScreenEl = document.getElementById('screen-' + currentScreen);
         const newScreenEl = document.getElementById('screen-' + targetScreen);
         previousScreen = currentScreen;
-        
+
         document.querySelectorAll('.screen').forEach(s => {
             s.classList.remove('active');
             s.classList.add('exiting');
@@ -75,6 +75,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentScreen === 'training') {
             loadLibrary();
             renderTriggers();
+            // Check if a trained model already exists
+            fetch(`${API_BASE}/model_exists`)
+                .then(r => r.json())
+                .then(data => {
+                    const skipBtn = document.getElementById('btn-skip-to-live');
+                    if (skipBtn) skipBtn.style.display = data.exists ? 'inline-block' : 'none';
+                })
+                .catch(() => { });
         }
         if (currentScreen === 'live') {
             renderLiveView();
@@ -85,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.loadLibrary = async () => {
         const container = document.getElementById('library-container');
         if (!container) return;
-        
+
         container.innerHTML = '<p style="color: var(--muted); font-size: 14px; text-align: center; margin: 0;">Loading existing gestures...</p>';
         try {
             const res = await fetch(`${API_BASE}/list_gestures?mode=${selectedMode}`);
@@ -143,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             actions.appendChild(renameBtn);
             actions.appendChild(delBtn);
-            
+
             card.appendChild(info);
             card.appendChild(actions);
             container.appendChild(card);
@@ -188,13 +196,13 @@ document.addEventListener('DOMContentLoaded', () => {
             gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
             osc.start(ctx.currentTime);
             osc.stop(ctx.currentTime + 0.15);
-        } catch (_) {}
+        } catch (_) { }
     }
 
     window.renameGesture = async (oldName) => {
         const newName = prompt(`Rename '${oldName}' to:`);
         if (!newName || newName.trim() === '' || newName === oldName) return;
-        
+
         try {
             const res = await fetch(`${API_BASE}/rename_gesture`, {
                 method: 'POST',
@@ -206,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast(data.message);
                 speak(`Renamed gesture to ${newName.trim()}`);
                 loadLibrary();
-                
+
                 // Update in active triggers list if it's there
                 const existing = triggers.find(t => t.name === oldName);
                 if (existing) {
@@ -230,13 +238,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('mc-object').classList.remove('selected');
         document.getElementById('mc-' + mode).classList.add('selected');
         btnContinue.disabled = false;
-        
+
         // Show marker upload section only for object mode
         const markerSection = document.getElementById('marker-upload-section');
         if (markerSection) markerSection.style.display = mode === 'object' ? 'block' : 'none';
-        
+
         typeTerminal(`Selected: ${mode === 'hands' ? 'Hand Recognition' : 'Custom Object'} Mode.`);
-        
+
         // Setup initial trigger based on mode
         triggers = [{
             id: uuidv4(),
@@ -250,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
         terminalText.innerHTML = `> <div class="term-caret"></div>`;
         let i = 0;
         terminalText.innerHTML = '> ';
-        
+
         const typeChar = () => {
             if (i < text.length) {
                 terminalText.innerHTML += text.charAt(i);
@@ -282,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.trainTrigger = async (id) => {
         const trigger = triggers.find(t => t.id === id);
-        if(!trigger || !trigger.name) {
+        if (!trigger || !trigger.name) {
             showToast("Please provide a valid folder name first.");
             return;
         }
@@ -296,8 +304,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ label: trigger.name, mode: selectedMode })
             });
             const data = await response.json();
-            
-            if(response.ok) {
+
+            if (response.ok) {
                 trigger.isTrained = true;
                 renderTriggers();
                 showToast(`Check your new camera window to capture frames for ${trigger.name}...`);
@@ -306,28 +314,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (e) {
             console.error(e);
-            showToast("API Error. Ensure the Flask server is running on port 5000.");
+            showToast("API Error. Ensure the Flask server is running on port 8080.");
         }
     };
 
     window.renderTriggers = () => {
         const container = document.getElementById('triggers-container');
-        if(!container) return;
+        if (!container) return;
         container.innerHTML = '';
-        
+
         triggers.forEach(t => {
             const card = document.createElement('div');
             card.className = 'tc-card';
-            
+
             const header = document.createElement('div');
             header.style.display = 'flex';
             header.style.justifyContent = 'space-between';
-            
+
             const title = document.createElement('span');
             title.style.fontWeight = '600';
             title.style.color = 'var(--navy)';
             title.textContent = `Label Data: ${t.name}`;
-            
+
             const removeBtn = document.createElement('button');
             removeBtn.textContent = '✕';
             removeBtn.style.background = 'none';
@@ -335,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
             removeBtn.style.color = 'var(--muted)';
             removeBtn.style.cursor = 'pointer';
             removeBtn.onclick = () => removeTrigger(t.id);
-            
+
             header.appendChild(title);
             header.appendChild(removeBtn);
 
@@ -353,13 +361,13 @@ document.addEventListener('DOMContentLoaded', () => {
             card.appendChild(header);
             card.appendChild(input);
             card.appendChild(trainBtn);
-            
+
             container.appendChild(card);
         });
     };
 
     window.finishTraining = async () => {
-        if(triggers.length === 0) {
+        if (triggers.length === 0) {
             showToast("Add at least one trigger before compiling.");
             return;
         }
@@ -368,38 +376,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const progressFill = document.getElementById('progress-fill');
         const progressPercent = document.getElementById('progress-percent');
         const progressEta = document.getElementById('progress-eta');
-        
+
         overlay.classList.add('active');
         progressFill.style.width = '0%';
         progressPercent.textContent = '0%';
         progressEta.textContent = 'Calculating ETA...';
-        
+
         speak("Compiling and training PyTorch model. Please wait.");
 
         let halfwayAnnounced = false;
-        
+
         // Start polling progress
         const progressInterval = setInterval(async () => {
             try {
                 const res = await fetch(`${API_BASE}/training_progress`);
                 const data = await res.json();
-                
+
                 if (data.total_epochs > 1 && data.epoch > 0) {
                     const percent = Math.min(100, Math.round((data.epoch / data.total_epochs) * 100));
                     progressFill.style.width = `${percent}%`;
                     progressPercent.textContent = `${percent}%`;
-                    
+
                     // Announce halfway
                     if (percent >= 50 && !halfwayAnnounced) {
                         speak("Training is halfway complete.");
                         halfwayAnnounced = true;
                     }
-                    
+
                     // Calculate ETA
                     const timePerEpoch = data.elapsed_seconds / data.epoch;
                     const remainingEpochs = data.total_epochs - data.epoch;
                     const etaSeconds = Math.round(timePerEpoch * remainingEpochs);
-                    
+
                     if (etaSeconds > 60) {
                         const mins = Math.floor(etaSeconds / 60);
                         const secs = etaSeconds % 60;
@@ -420,11 +428,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ mode: selectedMode })
             });
             const data = await response.json();
-            
+
             clearInterval(progressInterval);
             overlay.classList.remove('active');
 
-            if(response.ok) {
+            if (response.ok) {
                 progressFill.style.width = '100%';
                 progressPercent.textContent = '100%';
                 speak("Training complete. Model successfully built.");
@@ -464,11 +472,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 detectionStarted = true;
                 showToast('Detection camera opened! Show your trained gestures.');
                 speak('Real-time detection started. Show your trained gestures to the camera.');
-                
+
                 // Start polling the detection output
                 const termOut = document.getElementById('live-terminal-output');
                 let lastTimestamp = 0;
-                
+
                 if (termOut) {
                     termOut.innerHTML = '<div style="color:var(--success)">[System] Connected to detection feed...</div>';
                 }
@@ -477,11 +485,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         const res = await fetch(`${API_BASE}/detection_feed`);
                         const feed = await res.json();
-                        
+
                         if (feed && feed.label && feed.timestamp > lastTimestamp) {
                             lastTimestamp = feed.timestamp;
                             const labelStr = feed.label.toLowerCase();
-                            
+
                             if (termOut) {
                                 // Special "clear" logic
                                 if (labelStr === 'clear') {
@@ -490,20 +498,20 @@ document.addEventListener('DOMContentLoaded', () => {
                                 } else {
                                     const line = document.createElement('div');
                                     line.style.marginTop = '4px';
-                                    
+
                                     // if L shape, print "L" as requested
                                     if (labelStr === 'l' || labelStr === 'l_shape' || labelStr === 'l-shape') {
                                         line.textContent = `> L`;
                                     } else {
                                         line.textContent = `> ${feed.label}`;
                                     }
-                                    
+
                                     termOut.appendChild(line);
                                     termOut.scrollTop = termOut.scrollHeight;
                                 }
                             }
                         }
-                    } catch(e) { /* ignore polling errors */ }
+                    } catch (e) { /* ignore polling errors */ }
                 }, 500);
 
             } else {
@@ -517,7 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.renderLiveView = () => {
         const container = document.getElementById('live-pills-container');
-        if(!container) return;
+        if (!container) return;
         container.innerHTML = '';
 
         triggers.forEach(t => {
@@ -554,12 +562,12 @@ document.addEventListener('DOMContentLoaded', () => {
     window.testFire = (id) => {
         if (isFiring) return;
         isFiring = true;
-        
+
         const trigger = triggers.find(t => t.id === id);
         const nameFallback = trigger ? trigger.name : 'Unknown';
-        
+
         const pillDiv = document.getElementById(`pill-${id}`);
-        if(pillDiv) {
+        if (pillDiv) {
             pillDiv.classList.add('hot');
             pillDiv.querySelector('.p-test').textContent = 'Fired ✓';
         }
@@ -568,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
         speak(`Trigger ${nameFallback} executed.`);
 
         setTimeout(() => {
-            if(pillDiv) {
+            if (pillDiv) {
                 pillDiv.classList.remove('hot');
                 pillDiv.querySelector('.p-test').textContent = 'Demo Fire';
             }
@@ -581,12 +589,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function showToast(msg) {
         const container = document.getElementById('toast-container');
         const toastId = `toast-${toastIndex++}`;
-        
+
         const tDiv = document.createElement('div');
         tDiv.className = 'toast';
         tDiv.id = toastId;
         tDiv.innerHTML = `<i class="fas fa-info-circle"></i> ${msg}`;
-        
+
         container.appendChild(tDiv);
 
         setTimeout(() => {
@@ -610,28 +618,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnToggleConnection.addEventListener('click', () => {
         isHardwareConnected = !isHardwareConnected;
-        
-        if(isHardwareConnected) {
+
+        if (isHardwareConnected) {
             btnToggleConnection.textContent = "Disconnect";
             btnToggleConnection.style.background = "rgba(16, 185, 129, 0.1)";
             btnToggleConnection.style.borderColor = "var(--success)";
             btnToggleConnection.style.color = "var(--success)";
-            
+
             spIndicator.className = "sp-dot pulse-green";
             spText.textContent = "Hardware Connected";
             spText.style.color = "var(--success)";
-            
+
             speak("Hardware successfully connected via serial.");
         } else {
             btnToggleConnection.textContent = "Connect Device";
-            btnToggleConnection.style.background = ""; 
+            btnToggleConnection.style.background = "";
             btnToggleConnection.style.borderColor = "";
             btnToggleConnection.style.color = "";
-            
+
             spIndicator.className = "sp-dot pulse-gray";
             spText.textContent = "Simulation Mode";
             spText.style.color = "var(--navy)";
-            
+
             speak("Hardware disconnected. Returning to simulation mode.");
         }
     });
