@@ -7,9 +7,15 @@ String line = "";
 String PERIPHERAL_ID = "ESP32_SCREEN";
 
 void clearLine() {
-  line = "";                 // reset stored text
-  u8g2.clearBuffer();        // clear display buffer
-  u8g2.sendBuffer();         // update screen
+  
+  u8g2.clear();
+
+  while (Serial.available()) {
+    Serial.read();   // flush remaining serial data
+  }
+
+  u8g2.clearBuffer();
+  u8g2.sendBuffer();
 }
 
 
@@ -30,7 +36,7 @@ void loop() {
     if (c != '\n' && c != '\r') {
       line += c;
       updated = true;
-    } else if (c == "0"){
+    } else if (c == '0'){
       clearLine();
     }
   }
